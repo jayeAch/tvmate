@@ -15,6 +15,7 @@ jobs:
       - name: Download playlist
         run: |
           curl -fsSL "${{ secrets.TVMATE_URL }}" -o playlist.m3u
+          sed -i 's/\(group-title="[^"]*\) *"/\1"/g' playlist.m3u
 
       - name: Verify download
         run: |
