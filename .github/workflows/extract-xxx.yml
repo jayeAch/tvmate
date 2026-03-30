@@ -1,0 +1,80 @@
+name: Extract XXX Playlist
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6 hours, in sync with the main playlist cadence
+
+jobs:
+  extract-xxx:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download source playlist
+        env:
+          SOURCE_URL: ${{ secrets.SOURCE_URL }}
+        run: |
+          curl -L "$SOURCE_URL" -o playlist.m3u
+
+      - name: Extract XXX entries
+        run: |
+          python3 - <<'EOF'
+          import re
+
+          with open("playlist.m3u", "r", encoding="utf-8", errors="replace") as f:
+              raw = f.read()
+
+          # Grab the #EXTM3U header line (first line)
+          lines = raw.splitlines()
+          header = lines[0] if lines[0].startswith("#EXTM3U") else "#EXTM3U"
+
+          # Parse into (extinf, url) pairs
+          entries = []
+          i = 1
+          while i < len(lines):
+              line = lines[i].strip()
+              if line.startswith("#EXTINF"):
+                  extinf = line
+                  # Next non-empty line should be the URL
+                  j = i + 1
+                  while j < len(lines) and not lines[j].strip():
+                      j += 1
+                  url = lines[j].strip() if j < len(lines) else ""
+                  entries.append((extinf, url))
+                  i = j + 1
+              else:
+                  i += 1
+
+          # Filter: keep entries with group-title="XXX CHANNELS" (case-insensitive)
+          xxx_entries = [
+              (e, u) for e, u in entries
+              if re.search(r'group-title="XXX CHANNELS"', e, re.IGNORECASE)
+          ]
+
+          out_lines = [header]
+          for extinf, url in xxx_entries:
+              out_lines.append(extinf)
+              out_lines.append(url)
+
+          with open("XXX.m3u", "w", encoding="utf-8") as f:
+              f.write("\n".join(out_lines) + "\n")
+
+          print(f"Extracted {len(xxx_entries)} XXX entries -> XXX.m3u")
+          EOF
+
+      - name: Delete existing XXX release (if present)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete xxx-playlist --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          git push origin :refs/tags/xxx-playlist 2>/dev/null || true
+
+      - name: Publish XXX.m3u as GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create xxx-playlist XXX.m3u \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "XXX Playlist" \
+            --notes "Auto-extracted XXX channels from the main tvmate playlist. Updated every 6 hours." \
+            --latest=false
