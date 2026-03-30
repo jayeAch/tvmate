@@ -1,0 +1,43 @@
+name: Download & Publish IPTV Playlist
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+
+jobs:
+  update-playlist:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download playlist
+        run: |
+          curl -fsSL "${{ secrets.TVMATE_URL }}" -o playlist.m3u
+
+      - name: Verify download
+        run: |
+          if [ ! -s playlist.m3u ]; then
+            echo "Download failed or empty file"
+            exit 1
+          fi
+          head -1 playlist.m3u
+          wc -l playlist.m3u
+
+      - name: Delete existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest-playlist --yes --repo ${{ github.repository }} 2>/dev/null || true
+
+      - name: Create/update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create latest-playlist \
+            --repo ${{ github.repository }} \
+            --title "Latest IPTV Playlist" \
+            --notes "Auto-updated every 6 hours. Last update: $(date -u '+%Y-%m-%d %H:%M UTC')" \
+            --latest \
+            playlist.m3u
