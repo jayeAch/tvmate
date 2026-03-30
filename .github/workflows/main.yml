@@ -16,11 +16,12 @@ jobs:
         run: |
           curl -fsSL "${{ secrets.TVMATE_URL }}" -o playlist.m3u
           perl -i -pe 's/(group-title=")([^"]+?)(\s+")/$1$2"/g' playlist.m3u
-      # Inject EPG URL into header (replace or append x-tvg-url)
+
+          # Inject EPG URL into header
           if grep -q 'x-tvg-url=' playlist.m3u; then
             perl -i -pe 's|x-tvg-url="[^"]*"|x-tvg-url="${{ secrets.EPG_URL }}"|' playlist.m3u
           else
-            perl -i -pe 's|(#EXTM3U)(.*)|\1 x-tvg-url="${{ secrets.EPG_URL }}"$2|' playlist.m3u
+            perl -i -pe 's|(#EXTM3U)(.*)|$1 x-tvg-url="${{ secrets.EPG_URL }}"$2|' playlist.m3u
           fi
 
       - name: Verify download
