@@ -12,26 +12,25 @@ jobs:
       contents: write
 
     steps:
-      - name: Download playlist
+      - name: Download playlist and EPG
         run: |
           curl -fsSL "${{ secrets.TVMATE_URL }}" -o playlist.m3u
+          curl -fsSL "${{ secrets.EPG_URL }}" -o epg.xml
           perl -i -pe 's/(group-title=")([^"]+?)(\s+")/$1$2"/g' playlist.m3u
 
-          # Inject EPG URL into header
-          if grep -q 'x-tvg-url=' playlist.m3u; then
-            perl -i -pe 's|x-tvg-url="[^"]*"|x-tvg-url="${{ secrets.EPG_URL }}"|' playlist.m3u
-          else
-            perl -i -pe 's|(#EXTM3U)(.*)|$1 x-tvg-url="${{ secrets.EPG_URL }}"$2|' playlist.m3u
-          fi
-
-      - name: Verify download
+      - name: Verify downloads
         run: |
           if [ ! -s playlist.m3u ]; then
-            echo "Download failed or empty file"
+            echo "Playlist download failed or empty file"
+            exit 1
+          fi
+          if [ ! -s epg.xml ]; then
+            echo "EPG download failed or empty file"
             exit 1
           fi
           head -1 playlist.m3u
           wc -l playlist.m3u
+          wc -c epg.xml
 
       - name: Delete existing release
         env:
@@ -48,4 +47,5 @@ jobs:
             --title "Latest IPTV Playlist" \
             --notes "Auto-updated every 6 hours. Last update: $(date -u '+%Y-%m-%d %H:%M UTC')" \
             --latest \
-            playlist.m3u
+            playlist.m3u \
+            epg.xml
